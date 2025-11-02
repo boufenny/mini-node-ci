@@ -6,22 +6,17 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
-permissions:
-  contents: read
-  pull-requests: write
-  id-token: write
-
 jobs:
   build-test-analyze:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -30,45 +25,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # (Optionnel) Debug propre avant analyse
-      - name: Debug environment and sonar properties
-        run: |
-          echo "Branch              : $GITHUB_REF_NAME"
-          echo "SONAR_TOKEN present : $([[ -n "$SONAR_TOKEN" ]] && echo yes || echo no)"
-          echo "GITHUB_TOKEN present: $([[ -n "$GITHUB_TOKEN" ]] && echo yes || echo no)"
-          echo "------ sonar-project.properties ------"
-          cat sonar-project.properties || echo "No sonar-project.properties found"
-          echo "--------------------------------------"
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run unit tests with coverage
+      - name: Run tests
         run: npm test -- --coverage
         env:
-          # Nécessaire si vous êtes en ESM ("type": "module") avec Jest
           NODE_OPTIONS: --experimental-vm-modules
-
-      # (Optionnel) Conserver le lcov pour analyse / téléchargeable depuis l'UI
-      - name: Upload coverage artifact (lcov)
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-lcov
-          path: coverage/lcov.info
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # pour décorer la PR côté GitHub
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}     # token généré sur SonarCloud
-        # Si vous préférez passer les propriétés ici plutôt que via sonar-project.properties,
-        # décommentez ci-dessous et mettez vos valeurs exactes :
-        # with:
-        #   args: >
-        #     -Dsonar.organization=boufenny
-        #     -Dsonar.projectKey=boufenny_mini-node-ci
-        #     -Dsonar.sources=src
-        #     -Dsonar.tests=__tests__
-        #     -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-        #     -Dsonar.qualitygate.wait=true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
